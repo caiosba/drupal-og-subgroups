@@ -30,7 +30,7 @@
  *		TRUE if user has access grant with the given perm to one of the enstertors
  *		groups.
  */
-function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = '', $account = NULL, $structure = array(), $level = 0) {
+function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = '', $account = NULL, &$structure = array(), $level = 0) {
   // Check if user has the permission in a parent group.
   foreach($entity_groups as $gid) {
     // Save the hierarchy structure.
@@ -54,7 +54,7 @@ function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = 
   }
   if ($parent_groups) {
     // Recurssion call of the function.
-    return  og_subgroups_get_reverse_hierarchy_tree_perm($parent_groups, $string, $account, &$structure, ++$level);
+    return  og_subgroups_get_reverse_hierarchy_tree_perm($parent_groups, $string, $account, $structure, ++$level);
   }
   else {
     // Reached a dead end, return false.
@@ -107,7 +107,7 @@ function og_subgroups_node_access_records_alter(&$grants, $node) {
     }
     // If group is private, then grant permissions for parent groups.
     if ($private) {
-      og_subgroups_get_reverse_hierarchy_tree_perm($groups,'', NULL, &$gids);
+      og_subgroups_get_reverse_hierarchy_tree_perm($groups, '', NULL, $gids);
       // Check existing grant and remove from gids[], to avoid duplication.
       foreach ($grants as $granted) {
         if (isset($gids[$granted['gid']])) {
