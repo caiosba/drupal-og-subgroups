@@ -26,29 +26,37 @@ function og_subgroups_ctools_plugin_directory($module, $plugin) {
  *    Array of group id to check and start moving up in the hierarchy.
  * @param $account
  *    Optional; The account to check
- * @param $string_perm
- *    Optional; The permission string, if empty return the full tree stucture in
+ * @param $string
+ *    Optional; The permission string, if empty return the full tree structure in
  *    $structure, otherwise stops when the permission is grant.
  * @param $structure
- * 		Optional; This is the array that you should send by ref to get back the
+ * 		Optional; This is the array that you should send by refeference to get back
  * 		all the tree structure of the given groups.
  *    Array contain 2 keys ['gid'] - group id, and ['level'] the depth of the
  *    parent.
  * @param $level
- * 		Optional; Level of tree to start counting from, normaly there is no need
+ * 		Optional; Level of tree to start counting from, normally there is no need
  *    to change this. Default to 0 being the entity given.
  *
  *	@return
  *		TRUE if user has access grant with the given perm to one of the enstertors
  *		groups.
  */
-function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = '', $account = NULL, $structure = array(), $level = 0) {
+function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = '', $account = NULL, &$structure = array(), &$graph = FALSE , $level = 0) {
   // Check if user has the permission in a parent group.
   foreach($entity_groups as $gid) {
     // Save the hierarchy structure.
     $structure[$gid] = array();
     $structure[$gid]['gid'] = $gid;
     $structure[$gid]['level'] = $level;
+
+    // Build a graph with graph api
+    if (is_array($graph)) {
+      $group = og_load($gid);
+      graphapi_set_node_title($graph, $gid,  $group->label);
+     // dpm($graph);
+    }
+    // Check access permission.
     if ($string) {
       if (og_user_access($gid, $string, $account, TRUE)) {
         return TRUE;
@@ -159,4 +167,42 @@ function og_subgroups_grants_has_og_realm($grants) {
     }
   }
   return FALSE;
+}
+
+/**
+ * Get hierarchy tree.
+ *
+ * @param $entity_type
+ * @param $etid
+ * @param $options
+ */
+function og_get_hierarchy($entity_type, $etid, $options = array(), &$tree = array(), $depth = 0) {
+  $options += array(
+    'direction' => 'up',
+    'type' => 'single',
+    'sanitize' => TRUE,
+  );
+
+  $wrapper = entity_metadata_wrapper($entity_type, $etid);
+
+  if ($depth == 0 && $group = $wrapper->group->value()) {
+    if ($options['type'] == 'single') {
+      $tree[$group->gid] = og_label($group->gid, $options['sanitize']);
+    }
+    else {
+      $tree[$depth][$group->gid] = og_label($group->gid, $options['sanitize']);
+    }
+  }
+
+  if ($options['direction'] == 'up' && $options['type'] == 'single') {
+    $group = FALSE;
+    // Get the first group associated with the entity.
+    if ($wrapper->og_membership->get(0)->value()) {
+      $group = $wrapper->og_membership->get(0)->group->value();
+      $tree[$group->gid] = og_label($group->gid, $options['sanitize']);
+      og_get_hierarchy($group->entity_type, $group->etid, $options, $tree, $depth + 1);
+    }
+  }
+
+  return $tree;
 }
