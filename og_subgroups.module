@@ -5,7 +5,19 @@
  * Enable defining hierarchy of groups for organic groups.
  */
 
+/**
+ * Implementation of hook_ctools_plugin_directory().
+ */
+function og_subgroups_ctools_plugin_directory($module, $plugin) {
+  // Safety: go away if CTools is not at an appropriate version.
+  if (!module_invoke('ctools', 'api_version', OG_REQUIRED_CTOOLS_API)) {
+    return;
+  }
 
+  if ($module == 'ctools') {
+    return 'plugins/' . $plugin;
+  }
+}
 /**
  * Check if a user has access permission in one of the ancestors groups
  * and return the tree structure of the group hierarchy.
@@ -50,11 +62,19 @@ function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = 
     // Load the entity associated with the group.
     $entity = og_load_entity_from_group($group->gid);
     // Get all groups that are associated with passed group.
-    $parent_groups += og_get_entity_groups($group->entity_type, $entity);
+    $parents = og_get_entity_groups($group->entity_type, $entity);
+    $parent_groups += $parents;
+    // Build a graph path with graph api
+    if (is_array($graph)) {
+    	foreach ($parents as $parent) {
+    		graphapi_set_node_title($graph, $parent,  $parent);
+        graphapi_set_link_data($graph, $group->gid, $parent, array('color' => '#018FE2'));
+    	}
+    }
   }
   if ($parent_groups) {
     // Recurssion call of the function.
-    return  og_subgroups_get_reverse_hierarchy_tree_perm($parent_groups, $string, $account, &$structure, ++$level);
+    return  og_subgroups_get_reverse_hierarchy_tree_perm($parent_groups, $string, $account, $structure, $graph, ++$level);
   }
   else {
     // Reached a dead end, return false.
