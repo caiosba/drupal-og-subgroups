@@ -30,17 +30,17 @@ function og_subgroups_ctools_plugin_directory($module, $plugin) {
  *    Optional; The permission string, if empty return the full tree structure in
  *    $structure, otherwise stops when the permission is grant.
  * @param $structure
- * 		Optional; This is the array that you should send by refeference to get back
- * 		all the tree structure of the given groups.
+ *     Optional; This is the array that you should send by refeference to get back
+ *     all the tree structure of the given groups.
  *    Array contain 2 keys ['gid'] - group id, and ['level'] the depth of the
  *    parent.
  * @param $level
- * 		Optional; Level of tree to start counting from, normally there is no need
+ *     Optional; Level of tree to start counting from, normally there is no need
  *    to change this. Default to 0 being the entity given.
  *
- *	@return
- *		TRUE if user has access grant with the given perm to one of the enstertors
- *		groups.
+ *  @return
+ *    TRUE if user has access grant with the given perm to one of the enstertors
+ *    groups.
  */
 function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = '', $account = NULL, &$structure = array(), &$graph = FALSE , $level = 0) {
   // Check if user has the permission in a parent group.
@@ -74,10 +74,10 @@ function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = 
     $parent_groups += $parents;
     // Build a graph path with graph api
     if (is_array($graph)) {
-    	foreach ($parents as $parent) {
-    		graphapi_set_node_title($graph, $parent,  $parent);
+      foreach ($parents as $parent) {
+        graphapi_set_node_title($graph, $parent,  $parent);
         graphapi_set_link_data($graph, $group->gid, $parent, array('color' => '#018FE2'));
-    	}
+      }
     }
   }
   if ($parent_groups) {
