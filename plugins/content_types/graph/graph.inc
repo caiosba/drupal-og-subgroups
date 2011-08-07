@@ -24,10 +24,11 @@ function og_subgroups_graph_content_type_render($subtype, $conf, $args, $context
   $group = clone $context->data;
   $graph = graphapi_new_graph();
 
-  og_subgroups_get_reverse_hierarchy_tree_perm(array($group->gid),'', NULL, $structure, $graph);
+  og_subgroups_get_reverse_hierarchy_tree_perm(array($group->gid),'' , NULL, $structure, $graph);
 
+  // TODO: Add settings for the options.
   $options = array(
-    'width' => 400,
+    'width' => 550,
     'height' => 400,
     'item-width' => 50,
   );
