@@ -51,10 +51,9 @@ function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = 
     $structure[$gid]['level'] = $level;
 
     // Build a graph with graph api
-    if (is_array($graph)) {
+    if (is_array($graph) && module_exists('graphapi')) {
       $group = og_load($gid);
       graphapi_set_node_title($graph, $gid,  $group->label);
-     // dpm($graph);
     }
     // Check access permission.
     if ($string) {
@@ -73,7 +72,7 @@ function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = 
     $parents = og_get_entity_groups($group->entity_type, $entity);
     $parent_groups += $parents;
     // Build a graph path with graph api
-    if (is_array($graph)) {
+    if (is_array($graph) && module_exists('graphapi')) {
       foreach ($parents as $parent) {
         graphapi_set_node_title($graph, $parent,  $parent);
         graphapi_set_link_data($graph, $group->gid, $parent, array('color' => '#018FE2'));
@@ -82,7 +81,7 @@ function og_subgroups_get_reverse_hierarchy_tree_perm($entity_groups, $string = 
   }
   if ($parent_groups) {
     // Recurssion call of the function.
-    return  og_subgroups_get_reverse_hierarchy_tree_perm($parent_groups, $string, $account, $structure, $graph, ++$level);
+    return og_subgroups_get_reverse_hierarchy_tree_perm($parent_groups, $string, $account, $structure, $graph, ++$level);
   }
   else {
     // Reached a dead end, return false.
