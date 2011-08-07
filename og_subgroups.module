@@ -135,7 +135,7 @@ function og_subgroups_node_access_records_alter(&$grants, $node) {
     }
     // If group is private, then grant permissions for parent groups.
     if ($private) {
-      og_subgroups_get_reverse_hierarchy_tree_perm($groups,'', NULL, &$gids);
+      og_subgroups_get_reverse_hierarchy_tree_perm($groups, '', NULL, $gids);
       // Check existing grant and remove from gids[], to avoid duplication.
       foreach ($grants as $granted) {
         if (isset($gids[$granted['gid']])) {
