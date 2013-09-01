@@ -125,3 +125,15 @@ function og_subgroups_ctools_plugin_directory($module, $plugin) {
     return "plugins/entityreference/$plugin";
   }
 }
+
+/**
+ * Implements hook_theme().
+ */
+function og_subgroups_theme() {
+  return array(
+    'og_subgroups_subtitles' => array(
+      'template' => 'og-subgroups-subtitles',
+      'variables' => array('group' => NULL),
+    ),
+  );
+}
