@@ -12,39 +12,46 @@ require drupal_get_path('module', 'og_subgroups') . '/og_subgroups.common.inc';
  * Group default roles and permissions field.
  */
 define('OG_USER_INHERITANCE_FIELD', 'og_user_inheritance');
+define('OG_USER_INHERITANCE_FIELD_SUBGROUP', 1);
+define('OG_USER_INHERITANCE_FIELD_PARENT', 2);
 
 /**
  * Implements hook_og_fields_info().
  */
 function og_subgroups_og_fields_info() {
   $allowed_values = array(
-    0 => 'No - subgroups of this group won\'t inherit its users.',
-    1 => 'Yes - subgroups of this group will inherit its users.',
+    OG_USER_INHERITANCE_FIELD_SUBGROUP => t('Subgroups of this group will inherit its users.'),
+    OG_USER_INHERITANCE_FIELD_PARENT => t('Parents of this group will inherit its users.'),
   );
   $items[OG_USER_INHERITANCE_FIELD] = array(
     'type' => array('group'),
-    'description' => t('Determine if the subgroups of a group will inherit its users.'),
+    'description' => t('Determine if the subgroups of a group will inherit its users and if the parents of a group will inherit its users.'),
     'entity' => array('node'),
     'field' => array(
       'field_name' => OG_USER_INHERITANCE_FIELD,
       'no_ui' => TRUE,
-      'type' => 'list_boolean',
-      'cardinality' => 1,
+      'type' => 'list_integer',
+      'cardinality' => -1,
       'settings' => array('allowed_values' => $allowed_values, 'allowed_values_function' => ''),
     ),
     'instance' => array(
       'label' => t('Group user inheritance'),
-      'required' => TRUE,
-      'default_value' => array(0 => array('value' => 1)),
-      'widget_type' => 'options_select',
+      'required' => FALSE,
+      'default_value' => NULL,
+      'widget' => array(
+        'type' => 'options_buttons',
+        'module' => 'options',
+      ),
       'view modes' => array(
         'full' => array(
           'label' => 'above',
-          'type' => 'options_onoff',
+          'module' => 'options',
+          'type' => 'options_buttons',
         ),
         'teaser' => array(
           'label' => 'above',
-          'type' => 'options_onoff',
+          'module' => 'options',
+          'type' => 'options_buttons',
         ),
       ),
     ),
@@ -94,14 +101,27 @@ function og_subgroups_og_user_access_alter(&$perms, $context) {
   $group_type = $context['group_type'];
   $group = $context['group'];
   list($id) = entity_extract_ids($group_type, $group);
-  $parent_groups = _og_subgroups_get_unique_parents($group_type, $id);
-  if (!empty($parent_groups)) {
-    foreach ($parent_groups as $parent_group) {
+  $groups = _og_subgroups_get_unique_parents($group_type, $id) + _og_subgroups_get_unique_children($group_type, $id);
+  if (!empty($groups)) {
+    foreach ($groups as $group) {
       // Recursion is prevented by $skip_alter = TRUE.
-      if (og_user_access($parent_group['type'], $parent_group['id'], $context['string'], $context['account'], TRUE)) {
+      if (og_user_access($group['type'], $group['id'], $context['string'], $context['account'], TRUE)) {
         $perms[$context['string']] = TRUE;
         break;
       }
     }
+  }
+}
+
+function og_subgroups_og_fields_info_alter(&$fields_info) {
+  $fields_info[OG_AUDIENCE_FIELD]['field']['settings']['handler'] = 'og_subgroups';
+}
+
+/**
+ * Implements hook_ctools_plugin_directory().
+ */
+function og_subgroups_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'entityreference') {
+    return "plugins/entityreference/$plugin";
   }
 }

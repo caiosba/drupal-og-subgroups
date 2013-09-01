@@ -6,6 +6,24 @@
  */
 
 /**
+ * Get children groups.
+ */
+function _og_subgroups_get_children($group_type, $group_id, &$children_groups) {
+  $children = og_subgroups_get_associated_entities($group_type, $group_id);
+  foreach ($children as $children_type => $children_ids) {
+    $children_entities = entity_load($children_type, $children_ids);
+    foreach ($children_entities as $child_id => $child_entity) {
+      if (og_is_group($children_type, $child_entity)) {
+        if (isset($child_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE]) && in_array(array('value' => OG_USER_INHERITANCE_FIELD_PARENT), $child_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE])) {
+          $children_groups[$children_type . '-' . $child_id] = array('type' => $children_type, 'id' => $child_id);
+          _og_subgroups_get_children($children_type, $child_id, $children_groups);
+        }
+      }
+    }
+  }
+}
+
+/**
  * Get parent groups.
  *
  * This functions works by traversing the tree from the current
@@ -246,7 +264,7 @@ function og_subgroups_get_associated_entities($entity_type, $entity) {
 }
 
 /**
- * Return an array of inherited users from the parent groups that
+ * Return an array of inherited users from the parent and children groups that
  * allow for user inheritance.
  *
  * @param $entity_type
@@ -265,21 +283,21 @@ function og_subgroups_get_associated_entities($entity_type, $entity) {
  */
 function _og_subgroups_get_inherited_users($group_type, $group_id, $states = array(OG_STATE_ACTIVE)) {
   $inherited_users = array();
-  $parents = _og_subgroups_get_unique_parents($group_type, $group_id);
-  foreach ($parents as $parent) {
-    $users = og_subgroups_get_users_group($parent['type'], $parent['id'], $states);
+  $groups = _og_subgroups_get_unique_parents($group_type, $group_id) + _og_subgroups_get_unique_children($group_type, $group_id);
+  foreach ($groups as $group) {
+    $users = og_subgroups_get_users_group($group['type'], $group['id'], $states);
     foreach ($users['user'] as $membership_id => $uid) {
-      $roles = og_get_user_roles($parent['type'], $parent['id'], $uid);
+      $roles = og_get_user_roles($group['type'], $group['id'], $uid);
       $membership_ids[] = $membership_id;
       $user_ids[] = $uid;
-      $inherited_from[$parent['type']][] = $parent['id'];
+      $inherited_from[$group['type']][] = $group['id'];
       $inherited_users[$uid][] = array(
         'uid' => $uid,
         'membership_id' => $membership_id,
         'roles' => $roles,
         'inherited_from' => array(
-          'type' => $parent['type'],
-          'id' => $parent['id'],
+          'type' => $group['type'],
+          'id' => $group['id'],
         )
       );
     }
@@ -303,31 +321,56 @@ function _og_subgroups_get_inherited_users($group_type, $group_id, $states = arr
 }
 
 /**
- * Return an array of all the parent groups, optionally filtered
- * including only the groups that allow for inheritance.
+ * Return an array of all the children groups.
  *
  * @param $group_type
  *   The group type.
  * @param $group_id
  *   The group ID.
- * @param $filter
- *   Boolean value for whether to return only groups that allow for inheritance.
  *
  * @return
  *  An array with the entities' entity type and entity id as the key, and array
  *  containing the entity type, entity id, and entity object as values.
  *  If nothing is found, returns an empty array.
  */
-function _og_subgroups_get_unique_parents($group_type, $group_id, $filter = TRUE) {
+function _og_subgroups_get_unique_children($group_type, $group_id) {
+  $children_groups = array();
+  _og_subgroups_get_children($group_type, $group_id, $children_groups);
+  return $children_groups;
+}
+
+/**
+ * Return an array of all the parent groups.
+ * We stop propagation when we find a group that does not allow inheritance.
+ *
+ * @param $group_type
+ *   The group type.
+ * @param $group_id
+ *   The group ID.
+ *
+ * @return
+ *  An array with the entities' entity type and entity id as the key, and array
+ *  containing the entity type, entity id, and entity object as values.
+ *  If nothing is found, returns an empty array.
+ */
+function _og_subgroups_get_unique_parents($group_type, $group_id) {
   $groups = array();
+  $paths = array();
   og_subgroups_get_parents($group_type, $group_id, $paths);
   og_subgroups_populate_paths($paths);
   foreach ($paths as $path) {
-    foreach ($path as $group) {
+    $continue = TRUE;
+    $i = 0;
+    while($continue && $i < count($path)) {
+      $group = $path[$i];
       $entity = $group['entity'];
-      if (!$filter || (isset($entity->{OG_USER_INHERITANCE_FIELD}) && $entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE][0]['value'] == 1)) {
+      if (isset($entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE]) && in_array(array('value' => OG_USER_INHERITANCE_FIELD_SUBGROUP), $entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE])) {
         $groups[$group['type'] . '-' . $group['id']] = $group;
       }
+      else {
+        $continue = FALSE;
+      }
+      $i++;
     }
   }
   return $groups;
@@ -338,6 +381,8 @@ function _og_subgroups_get_unique_parents($group_type, $group_id, $filter = TRUE
  *
  * @param $account
  *   A user object.
+ * @param $groups
+ *   A list of groups to consider. Defaults to all user groups.
  *
  * @return
  *   An array of inherited groups a user is a member of.
@@ -346,20 +391,26 @@ function _og_subgroups_get_unique_parents($group_type, $group_id, $filter = TRUE
  *
  * @todo: add static cache.
  */
-function _og_subgroup_get_user_inherited_groups($account) {
+function _og_subgroup_get_user_inherited_groups($account, $groups = NULL) {
   $children_groups = array();
-  $groups = og_get_entity_groups('user', $account);
+  $parent_groups = array();
+  if (!$groups) {
+    $groups = og_get_entity_groups('user', $account);
+  }
   if (!empty($groups)) {
     foreach ($groups as $group_type => $gids) {
       foreach ($gids as $gid => $group_id) {
         $group_entity = current(entity_load($group_type, array($group_id)));
-        if (isset($group_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE][0]['value']) && $group_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE][0]['value']) {
+        if (isset($group_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE]) && in_array(array('value' => OG_USER_INHERITANCE_FIELD_SUBGROUP), $group_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE])) {
           _og_subgroups_get_children_groups($group_type, $group_id, $children_groups);
+        }
+        if (isset($group_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE]) && in_array(array('value' => OG_USER_INHERITANCE_FIELD_PARENT), $group_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE])) {
+          _og_subgroups_get_parent_groups($group_type, $group_id, $parent_groups);
         }
       }
     }
   }
-  return $children_groups;
+  return _og_subgroup_merge_groups($children_groups, $parent_groups);
 }
 
 /**
@@ -381,10 +432,75 @@ function _og_subgroups_get_children_groups($group_type, $group_id, &$children_gr
     foreach ($children_entities as $child_id => $child_entity) {
       if (og_is_group($children_type, $child_entity)) {
         $children_groups[$children_type][$child_id] = $child_entity;
-        if (isset($child_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE][0]['value']) && $child_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE][0]['value']) {
+        if (isset($child_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE]) && in_array(array('value' => OG_USER_INHERITANCE_FIELD_SUBGROUP), $child_entity->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE])) {
           _og_subgroups_get_children_groups($children_type, $child_id, $children_groups);
         }
       }
     }
   }
+}
+
+/**
+ * Helper function for _og_subgroup_get_user_inherited_groups().
+ * We stop propagation when we find a group that does not allow inheritance.
+ *
+ * @param $group_type
+ *   The group type.
+ * @param $group_id
+ *   The group ID.
+ * @param $parent_groups
+ *   An array of parent groups.
+ *
+ * @see: _og_subgroup_get_user_inherited_groups().
+ */
+function _og_subgroups_get_parent_groups($group_type, $group_id, &$parent_groups) {
+  $paths = array();
+  $groups = array();
+  og_subgroups_get_parents($group_type, $group_id, $paths);
+  og_subgroups_populate_paths($paths);
+  foreach ($paths as $path) {
+    $continue = TRUE;
+    $i = 0;
+    $previous = current(entity_load($group_type, array($group_id)));
+    while($continue && $i < count($path)) {
+      $group = $path[$i];
+      $entity = $group['entity'];
+      if (isset($previous->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE]) && in_array(array('value' => OG_USER_INHERITANCE_FIELD_PARENT), $previous->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE])) {
+        $parent_groups[$group['type']][$group['id']] = $group;
+        $previous = $entity;
+      }
+      else {
+        $continue = FALSE;
+      }
+      $i++;
+    }
+  }
+}
+
+/**
+ * Helper function for _og_subgroup_get_user_inherited_groups().
+ * Merge arrays of children and parent groups.
+ * 'array_merge', 'array_merge_recursive' or '+' give wrong results.
+ *
+ * @param $array,...
+ *   Any number of arrays to be merged.
+ *
+ * @see: _og_subgroup_get_user_inherited_groups().
+ */
+function _og_subgroup_merge_groups() {
+  $merged = array();
+  $args = func_get_args();
+  foreach ($args as $arg) {
+    if (is_array($arg)) {
+      foreach ($arg as $type => $group) {
+        if (!isset($merged[$type])) {
+          $merged[$type] = array();
+        }
+        foreach ($group as $id => $obj) {
+          $merged[$type][$id] = $obj;
+        }
+      }
+    }
+  }
+  return $merged;
 }
