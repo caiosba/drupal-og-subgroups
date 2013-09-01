@@ -1,5 +1,5 @@
-Subgroups for Organic groups (forked)
-=====================================
+Drupal module: Subgroups for Organic groups (forked)
+====================================================
 
 A fork from og_subgroups Drupal module [1], adding new features, as described here [2].
 
