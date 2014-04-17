@@ -137,3 +137,28 @@ function og_subgroups_theme() {
     ),
   );
 }
+
+/**
+ * Implements hook_field_attach_view_alter().
+ */
+function og_subgroups_field_attach_view_alter(&$output, $context) {
+  if ($context['entity_type'] == 'user' && $output['og_user_node']['#field_name'] == 'og_user_node' && $output['og_user_node']['#formatter'] == 'og_list_default') {
+    $account = user_load($context['entity']->uid);
+    $all_groups = _og_subgroup_get_user_inherited_groups($account);
+    foreach ($all_groups as $type => $groups) {
+      foreach ($groups as $gid => $group) {
+        if ($type == 'node') {
+          $node = node_load($gid);
+          $output['og_user_node'][] = array(
+            '#type' => 'link',
+            '#title' => $node->title,
+            '#href' => url($type . '/' . $node->nid),
+            '#group_type' => $type,
+            '#gid' => $node->nid,
+          );
+          $output['og_user_node']['#items'][] = array('target_id' => $node->nid);
+        }
+      }
+    }
+  }
+}
