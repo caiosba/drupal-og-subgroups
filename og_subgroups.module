@@ -15,15 +15,16 @@ define('OG_USER_INHERITANCE_FIELD', 'og_user_inheritance');
 define('OG_USER_INHERITANCE_PERMISSION_FIELD', 'og_user_permission_inheritance');
 define('OG_USER_INHERITANCE_PERMISSION_INHERIT', 0);
 define('OG_USER_INHERITANCE_PERMISSION_CHILD', 1);
-
+define('OG_USER_INHERITANCE_FIELD_SUBGROUP', 1);
+define('OG_USER_INHERITANCE_FIELD_PARENT', 2);
 
 /**
  * Implements hook_og_fields_info().
  */
 function og_subgroups_og_fields_info() {
   $allowed_values = array(
-    0 => 'No - subgroups of this group won\'t inherit its users.',
-    1 => 'Yes - subgroups of this group will inherit its users.',
+    OG_USER_INHERITANCE_FIELD_SUBGROUP => t('Subgroups of this group will inherit its users.'),
+    OG_USER_INHERITANCE_FIELD_PARENT => t('Parents of this group will inherit its users.'),
   );
   $items[OG_USER_INHERITANCE_FIELD] = array(
     'type' => array('group'),
@@ -32,23 +33,28 @@ function og_subgroups_og_fields_info() {
     'field' => array(
       'field_name' => OG_USER_INHERITANCE_FIELD,
       'no_ui' => TRUE,
-      'type' => 'list_boolean',
-      'cardinality' => 1,
+      'type' => 'list_integer',
+      'cardinality' => -1,
       'settings' => array('allowed_values' => $allowed_values, 'allowed_values_function' => ''),
     ),
     'instance' => array(
       'label' => t('Group user inheritance'),
-      'required' => TRUE,
-      'default_value' => array(0 => array('value' => 1)),
-      'widget_type' => 'options_select',
+      'required' => FALSE,
+      'default_value' => NULL,
+      'widget_type' => array(
+        'type' => 'options_buttons',
+        'module' => 'options',
+      ),
       'view modes' => array(
         'full' => array(
           'label' => 'above',
-          'type' => 'options_onoff',
+          'type' => 'options_buttons',
+          'module' => 'options',
         ),
         'teaser' => array(
           'label' => 'above',
-          'type' => 'options_onoff',
+          'type' => 'options_buttons',
+          'module' => 'options',
         ),
       ),
     ),
@@ -148,10 +154,10 @@ function og_subgroups_node_access_records_alter(&$grants, $node) {
   if (!empty($node->status) && og_is_group_type('node', $node->type) && module_exists('og_access')) {
     // Since subgroups are technically group content, they inherit group access.
     // However, that access is only one level deep so we need to redo it.
-    $all_parent = og_subgroups_parents_load('node', $node->nid, FALSE, TRUE, FALSE, TRUE);
+    $all_parent = og_subgroups_all_load('node', $node->nid, FALSE, TRUE, FALSE, TRUE);
     if (!empty($all_parent['node'])) {
       $gids = array();
-      $parents_with_inheritance = og_subgroups_parents_load('node', $node->nid, TRUE, TRUE, FALSE, TRUE);
+      $parents_with_inheritance = og_subgroups_all_load('node', $node->nid, TRUE, TRUE, FALSE, TRUE);
 
       // This is almost completely copied form og_access_node_access_records.
       // only difference is using $parents_with_inheritance vs og_get_entity_groups
@@ -250,7 +256,7 @@ function og_subgroups_og_user_access_alter(&$perms, $context) {
  */
 function _og_subgroups_check_access(&$perms, $context, $group_type, $id, $user_groups, $check_member_access = FALSE) {
   // Check only one level at a time due to permission inheritance field.
-  if ($parent_groups = og_subgroups_intersect_groups(og_subgroups_parents_load($group_type, $id, TRUE, FALSE), $user_groups)) {
+  if ($parent_groups = og_subgroups_intersect_groups(og_subgroups_all_load($group_type, $id, TRUE, FALSE), $user_groups)) {
     foreach ($parent_groups as $parent_group_type => $ids) {
       // Find all groups that ahve inheritence set to child (assume inherit
       // [default] otherwise).
@@ -341,7 +347,7 @@ function og_subgroups_og_membership_delete(OgMembership $og_membership) {
 function og_subgroups_clear_caches_for_group($group_type, $group_id) {
   _og_subgroups_clear_caches_for_group($group_type, $group_id);
   // Get only the immediate parents, who's child caches will contain this node.
-  foreach (og_subgroups_parents_load($group_type, $group_id, FALSE, TRUE) as $group_type => $group_ids) {
+  foreach (og_subgroups_all_load($group_type, $group_id, FALSE, TRUE) as $group_type => $group_ids) {
     foreach ($group_ids as $group_id) {
       _og_subgroups_clear_caches_for_group($group_type, $group_id);
     }

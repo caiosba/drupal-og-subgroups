@@ -59,7 +59,7 @@ function og_subgroup_user_groups_load($account = NULL, $inheriented_only = TRUE)
   }
   $children_groups = array();
   $groups = og_get_entity_groups('user', $account);
-  $new_groups = $groups ? og_subgroups_children_load_multiple($groups, TRUE, TRUE, !$inheriented_only) : array();
+  $new_groups = $groups ? og_subgroups_all_load_multiple($groups, TRUE, TRUE, !$inheriented_only) : array();
   return $new_groups && $inheriented_only ? og_subgroups_diff_groups($new_groups, $groups) : $new_groups;
 }
 
@@ -210,7 +210,7 @@ function og_subgroups_get_potentional_parents($entity_type, $fields = array()) {
  */
 function _og_subgroups_get_inherited_users($group_type, $group_id, $states = array(OG_STATE_ACTIVE)) {
   $inherited_users = array();
-  foreach (og_subgroups_parents_load($group_type, $group_id) as $parent_type => $parent_ids) {
+  foreach (og_subgroups_all_load($group_type, $group_id) as $parent_type => $parent_ids) {
     foreach ($parent_ids as $parent_id) {
       $users = og_subgroups_get_users_group($parent_type, $parent_id, $states);
       foreach ($users['user'] as $membership_id => $uid) {
@@ -321,7 +321,7 @@ function og_subgroups_parents_load_multiple($groups, $filter = TRUE, $fetch_all 
             }
             // If filtering, need to check the inhertence field.
             else {
-              foreach (_og_subgroups_get_field_matching($parent_group_type, $parent_group_ids, OG_USER_INHERITANCE_FIELD, 1) as $parent_group_id) {
+              foreach (_og_subgroups_get_field_matching($parent_group_type, $parent_group_ids, OG_USER_INHERITANCE_FIELD, OG_USER_INHERITANCE_FIELD_PARENT) as $parent_group_id) {
                 $group_cache[$cid][$parent_group_type][$parent_group_id] = $parent_group_id;
               }
             }
@@ -451,7 +451,7 @@ function og_subgroups_children_load_multiple($groups, $filter = TRUE, $fetch_all
       }
     }
     if ($process) {
-      $inheritated_groups = _og_subgroups_get_field_matching($group_type, $process, OG_USER_INHERITANCE_FIELD, 1);
+      $inheritated_groups = _og_subgroups_get_field_matching($group_type, $process, OG_USER_INHERITANCE_FIELD, OG_USER_INHERITANCE_FIELD_SUBGROUP);
       foreach ($process as $group_id) {
         $key = array_search($group_id, $process);
         unset($process[$key]);
@@ -519,4 +519,33 @@ function og_subgroups_children_load_multiple($groups, $filter = TRUE, $fetch_all
   }
 
   return $return;
+}
+
+/**
+ * Get the children and parent (a.k.a  "all") groups
+ */
+function og_subgroups_all_load($group_type, $group_id, $filter = TRUE, $fetch_all = TRUE, $include_current = FALSE, $reset = FALSE) {
+  $children = array();
+  $parents = array();
+
+  if (_og_subgroups_get_field_matching($group_type, $group_id, OG_USER_INHERITANCE_FIELD, OG_USER_INHERITANCE_FIELD_SUBGROUP)) {
+    $children = og_subgroups_children_load($group_type, $group_id, $filter, $fetch_all, $include_current, $reset);
+  }
+
+  if (_og_subgroups_get_field_matching($group_type, $group_id, OG_USER_INHERITANCE_FIELD, OG_USER_INHERITANCE_FIELD_PARENT)) {
+    $parents = og_subgroups_parents_load($group_type, $group_id, $filter, $fetch_all, $include_current, $reset);
+  }
+
+  return og_subgroups_merge_groups($children, $parents);
+}
+
+/**
+ * Get the children and parent (a.k.a  "all") groups (multiple)
+ */
+function og_subgroups_all_load_multiple($groups, $filter = TRUE, $fetch_all = TRUE, $include_current = TRUE, $reset = FALSE, $main_level = TRUE) {
+  $children = array();
+  $parents = array();
+  $children = og_subgroups_children_load_multiple($groups, $filter, $fetch_all, $include_current, $reset, $main_level);
+  $parents = og_subgroups_parents_load_multiple($groups, $filter, $fetch_all, $include_current, $reset);
+  return og_subgroups_merge_groups($children, $parents);
 }

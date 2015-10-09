@@ -37,6 +37,28 @@ function og_subgroups_views_pre_render(&$view) {
       'empty' => t('No inherited users.'),
     ));
   }
+
+  // Extend og_members block by listing inherited users, as a single list
+  if ($view->name == 'og_members' && $view->current_display == 'block_members_single') {
+    $group_id = $view->args[0];
+    $group_type = $view->args[1];
+
+    $members = array();
+    foreach ($view->result as $index => $member) {
+      $members[] = $member->uid;
+    }
+
+    $users = _og_subgroups_get_inherited_users($group_type, $group_id);
+
+    if (!empty($users)) {
+      foreach ($users as $member) {
+        if (!in_array($member->uid, $members)) {
+          $members[] = $member->uid;
+          $view->result[] = $member;
+        }
+      }
+    }
+  }
 }
 
 /**
