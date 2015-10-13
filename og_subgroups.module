@@ -34,7 +34,8 @@ function og_subgroups_og_fields_info() {
       'field_name' => OG_USER_INHERITANCE_FIELD,
       'no_ui' => TRUE,
       'type' => 'list_integer',
-      'cardinality' => -1,
+      'cardinality' => '-1',
+      'module' => 'list',
       'settings' => array('allowed_values' => $allowed_values, 'allowed_values_function' => ''),
     ),
     'instance' => array(
@@ -48,13 +49,13 @@ function og_subgroups_og_fields_info() {
       'view modes' => array(
         'full' => array(
           'label' => 'above',
-          'type' => 'options_buttons',
-          'module' => 'options',
+          'type' => 'list_default',
+          'module' => 'list',
         ),
         'teaser' => array(
           'label' => 'above',
-          'type' => 'options_buttons',
-          'module' => 'options',
+          'type' => 'list_default',
+          'module' => 'list',
         ),
       ),
     ),
@@ -405,4 +406,13 @@ function _og_subgroups_clear_caches_for_group($group_type, $group_id) {
   drupal_static_reset('og_subgroups_get_potentional_parents');
   drupal_static_reset('og_subgroups_children_load_multiple_all');
   cache_clear_all('og_subgroups_get_potentional_parents', 'cache', TRUE);
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function og_subgroups_node_update($node) {
+  if (og_is_group_type('node', $node->type)) {
+    og_subgroups_clear_caches_for_group('node', $node->nid);
+  }
 }
