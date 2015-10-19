@@ -416,3 +416,16 @@ function og_subgroups_node_update($node) {
     og_subgroups_clear_caches_for_group('node', $node->nid);
   }
 }
+
+function og_subgroups_og_fields_info_alter(&$fields_info) {
+  $fields_info[OG_AUDIENCE_FIELD]['field']['settings']['handler'] = 'og_subgroups';
+}
+
+/**
+ * Implements hook_ctools_plugin_directory().
+ */
+function og_subgroups_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'entityreference') {
+    return "plugins/entityreference/$plugin";
+  }
+}
