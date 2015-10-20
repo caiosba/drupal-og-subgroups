@@ -455,8 +455,9 @@ function og_subgroups_ctools_plugin_directory($module, $plugin) {
 function og_subgroups_field_attach_view_alter(&$output, $context) {
   if ($context['entity_type'] == 'user' && $output['og_user_node']['#field_name'] == 'og_user_node' && $output['og_user_node']['#formatter'] == 'og_list_default') {
     $account = user_load($context['entity']->uid);
-    $all_groups = _og_subgroup_user_all_groups($account, FALSE);
-    foreach ($all_groups as $index => $gid) {
+    $all_groups = node_load_multiple(_og_subgroup_user_all_groups($account, FALSE));
+    $index = 0;
+    foreach ($all_groups as $gid => $node) {
       $node = node_load($gid);
       $output['og_user_node'][$index] = array(
         '#type' => 'link',
@@ -466,6 +467,7 @@ function og_subgroups_field_attach_view_alter(&$output, $context) {
         '#gid' => $node->nid,
       );
       $output['og_user_node']['#items'][$index] = array('target_id' => $node->nid);
+      $index++;
     }
   }
 }

@@ -560,7 +560,6 @@ function _og_subgroup_user_all_groups($account = NULL, $inheriented_only = TRUE)
   }
 
   $inherited = array();
-
   foreach (_og_subgroup_user_parent_groups($ids) as $id) {
     $inherited[] = $id;
   }
