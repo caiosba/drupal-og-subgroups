@@ -327,12 +327,18 @@ function og_subgroups_og_membership_insert(OgMembership $og_membership) {
     og_subgroups_clear_caches_for_group($og_membership->entity_type, $og_membership->etid);
     og_subgroups_clear_caches_for_group($og_membership->group_type, $og_membership->gid);
   }
+  if ($og_membership->entity_type == 'user') {
+    og_subgroups_clear_caches_for_user($og_membership->etid);
+  }
 }
 /**
  * Implements hook_og_membership_update().
  */
 function og_subgroups_og_membership_update(OgMembership $og_membership) {
   og_subgroups_og_membership_insert($og_membership);
+  if ($og_membership->entity_type == 'user') {
+    og_subgroups_clear_caches_for_user($og_membership->etid);
+  }
 }
 
 /**
@@ -340,6 +346,9 @@ function og_subgroups_og_membership_update(OgMembership $og_membership) {
  */
 function og_subgroups_og_membership_delete(OgMembership $og_membership) {
   og_subgroups_og_membership_insert($og_membership);
+  if ($og_membership->entity_type == 'user') {
+    og_subgroups_clear_caches_for_user($og_membership->etid);
+  }
 }
 
 /**
@@ -352,6 +361,16 @@ function og_subgroups_clear_caches_for_group($group_type, $group_id) {
     foreach ($group_ids as $group_id) {
       _og_subgroups_clear_caches_for_group($group_type, $group_id);
     }
+  }
+}
+
+/**
+ * Clears out the caches for a given user.
+ */
+function og_subgroups_clear_caches_for_user($uid) {
+  foreach (array('0', '1') as $bool) {
+    $cid = 'og_subgroups_all_groups_user_' . $uid . '_' . $bool;
+    cache_clear_all($cid, 'cache');
   }
 }
 

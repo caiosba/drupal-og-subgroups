@@ -58,11 +58,19 @@ function og_subgroup_user_groups_load($account = NULL, $inheriented_only = TRUE)
     $account = $user;
   }
 
-  $groups = array('node' => array());
-  foreach (_og_subgroup_user_all_groups($account, $inheriented_only) as $id) {
-    $groups['node'][] = $id;
+  $cid = 'og_subgroups_all_groups_user_' . $account->uid . '_' . ($inheriented_only ? '1' : '0');
+  $gids = array();
+
+  if ($cached = cache_get($cid, 'cache')) {
+    $gids = $cached->data;
   }
-  return $groups;
+
+  if (empty($gids)) {
+    $gids = _og_subgroup_user_all_groups($account, $inheriented_only);
+    cache_set($cid, $gids, 'cache');
+  }
+
+  return array('node' => $gids);
 }
 
 /**
