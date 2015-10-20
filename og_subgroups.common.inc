@@ -58,26 +58,11 @@ function og_subgroup_user_groups_load($account = NULL, $inheriented_only = TRUE)
     $account = $user;
   }
 
-  $new_groups = array();
-  
-  $groups = og_get_entity_groups('user', $account);
-  $ids = array();
-  if (isset($groups['node'])) {
-    $ids = array_values($groups['node']);
+  $groups = array('node' => array());
+  foreach (_og_subgroup_user_all_groups($account, $inheriented_only) as $id) {
+    $groups['node'][] = $id;
   }
-  
-  if ($ids) {
-    foreach (_og_subgroups_get_field_matching('node', $ids, OG_USER_INHERITANCE_FIELD, OG_USER_INHERITANCE_FIELD_SUBGROUP) as $id) {
-      $new_groups = og_subgroups_merge_groups($new_groups, og_subgroups_children_load_multiple($groups, TRUE, TRUE, !$inheriented_only));
-    }
-
-    foreach (_og_subgroups_get_field_matching('node', $ids, OG_USER_INHERITANCE_FIELD, OG_USER_INHERITANCE_FIELD_PARENT) as $id) {
-      $new_groups = og_subgroups_merge_groups($new_groups, og_subgroups_parents_load_multiple($groups, TRUE, TRUE, !$inheriented_only));
-    }
-  }
-
-  $all_groups = $new_groups && $inheriented_only ? og_subgroups_diff_groups($new_groups, $groups) : $new_groups;
-  return $all_groups;
+  return $groups;
 }
 
 /**
@@ -552,4 +537,81 @@ function og_subgroups_all_load_multiple($groups, $filter = TRUE, $fetch_all = TR
   $children = og_subgroups_children_load_multiple($groups, $filter, $fetch_all, $include_current, $reset, $main_level);
   $parents = og_subgroups_parents_load_multiple($groups, $filter, $fetch_all, $include_current, $reset);
   return og_subgroups_merge_groups($children, $parents);
+}
+
+function _og_subgroup_user_all_groups($account = NULL, $inheriented_only = TRUE) {
+  if (!$account) {
+    global $user;
+    $account = $user;
+  }
+
+  $groups = og_get_entity_groups('user', $account);
+  $ids = array();
+  if (isset($groups['node'])) {
+    $ids = array_values($groups['node']);
+  }
+
+  $inherited = array();
+
+  foreach (_og_subgroup_user_parent_groups($ids) as $id) {
+    $inherited[] = $id;
+  }
+
+  foreach (_og_subgroup_user_child_groups($ids) as $id) {
+    $inherited[] = $id;
+  }
+
+  if ($inheriented_only) {
+    return $inherited;
+  }
+
+  foreach ($inherited as $id) {
+    $ids[] = $id;
+  }
+
+  return $ids;
+}
+
+function _og_subgroup_user_parent_groups($ids) {
+  if (empty($ids)) {
+    return $ids;
+  }
+
+  $parent_inheritable = _og_subgroups_get_field_matching('node', $ids, OG_USER_INHERITANCE_FIELD, OG_USER_INHERITANCE_FIELD_PARENT);
+  $ids = array();
+
+  foreach ($parent_inheritable as $id) {
+    foreach (og_subgroups_get_associated_entities('node', $id) as $type => $pids) {
+      foreach ($pids as $pid) {
+        $ids[] = $pid;
+      }
+      foreach (_og_subgroup_user_parent_groups($pids) as $pid) {
+        $ids[] = $pid;
+      }
+    }
+  }
+
+  return $ids;
+}
+
+function _og_subgroup_user_child_groups($ids) {
+  if (empty($ids)) {
+    return $ids;
+  }
+
+  $child_inheritable = _og_subgroups_get_field_matching('node', $ids, OG_USER_INHERITANCE_FIELD, OG_USER_INHERITANCE_FIELD_SUBGROUP);
+  $ids = array();
+
+  foreach ($child_inheritable as $id) {
+    foreach (og_get_entity_groups('node', $id) as $type => $pids) {
+      foreach ($pids as $pid) {
+        $ids[] = $pid;
+      }
+      foreach (_og_subgroup_user_child_groups($pids) as $pid) {
+        $ids[] = $pid;
+      }
+    }
+  }
+  
+  return $ids;
 }
