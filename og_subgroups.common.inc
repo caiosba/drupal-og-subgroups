@@ -588,7 +588,7 @@ function _og_subgroup_user_parent_groups($ids) {
   $ids = array();
 
   foreach ($parent_inheritable as $id) {
-    foreach (og_subgroups_get_associated_entities('node', $id) as $type => $pids) {
+    foreach (og_get_entity_groups('node', $id) as $type => $pids) {
       foreach ($pids as $pid) {
         $ids[] = $pid;
       }
@@ -610,7 +610,7 @@ function _og_subgroup_user_child_groups($ids) {
   $ids = array();
 
   foreach ($child_inheritable as $id) {
-    foreach (og_get_entity_groups('node', $id) as $type => $pids) {
+    foreach (og_subgroups_get_associated_entities('node', $id) as $type => $pids) {
       foreach ($pids as $pid) {
         $ids[] = $pid;
       }

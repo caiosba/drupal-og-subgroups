@@ -462,7 +462,7 @@ function og_subgroups_field_attach_view_alter(&$output, $context) {
       $output['og_user_node'][$index] = array(
         '#type' => 'link',
         '#title' => $node->title,
-        '#href' => url('node/' . $node->nid),
+        '#href' => url('node/' . $node->nid, array('absolute' => TRUE)),
         '#group_type' => 'node',
         '#gid' => $node->nid,
       );
