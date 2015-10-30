@@ -453,7 +453,8 @@ function og_subgroups_ctools_plugin_directory($module, $plugin) {
  * Implements hook_field_attach_view_alter().
  */
 function og_subgroups_field_attach_view_alter(&$output, $context) {
-  if ($context['entity_type'] == 'user' && $output['og_user_node']['#field_name'] == 'og_user_node') {
+  if ($context['entity_type'] == 'user' && isset($output['og_user_node']) && 
+      isset($output['og_user_node']['#field_name']) && $output['og_user_node']['#field_name'] == 'og_user_node') {
     $account = user_load($context['entity']->uid);
     $all_groups = node_load_multiple(_og_subgroup_user_all_groups($account, FALSE));
     $index = 0;
