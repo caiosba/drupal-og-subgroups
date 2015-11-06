@@ -569,14 +569,14 @@ function _og_subgroup_user_all_groups($account = NULL, $inheriented_only = TRUE)
   }
 
   if ($inheriented_only) {
-    return $inherited;
+    return array_keys(array_flip($inherited));
   }
 
   foreach ($inherited as $id) {
     $ids[] = $id;
   }
 
-  return $ids;
+  return array_keys(array_flip($ids));
 }
 
 function _og_subgroup_user_parent_groups($ids) {
