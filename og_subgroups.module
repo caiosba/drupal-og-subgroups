@@ -125,7 +125,9 @@ function og_subgroups_node_grants($account, $op) {
   $groups = og_subgroup_user_groups_load($account);
   if (!empty($groups)) {
     foreach ($groups as $group_type => $gids) {
-      $grants[OG_ACCESS_REALM . ':' . $group_type] = $gids;
+      if (!empty($gids)) {
+        $grants[OG_ACCESS_REALM . ':' . $group_type][] = $gids;
+      }
     }
   }
   return $grants;
